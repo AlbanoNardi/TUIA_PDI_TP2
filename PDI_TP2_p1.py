@@ -37,7 +37,6 @@ def rgb_gray_gauss(img):
 
 def det_circulos(img_procesada,img):
     circles = cv2.HoughCircles(img_procesada, cv2.HOUGH_GRADIENT, 1, minDist=200, param1=150, param2=40, minRadius=100, maxRadius=200)
-    print("Cantidad de círculos detectados:", len(circles[0]))
 
     img_color_ = img.copy()
     circles = np.uint16(np.around(circles))  # Redondear coordenadas
@@ -48,6 +47,7 @@ def det_circulos(img_procesada,img):
     return circles
 
 def clasificar_monedas(circles):
+    monedas = {"1 peso": 0, "50 centavos": 0, "10 centavos": 0} # Diccionario de monedas
     for (x, y, radio) in circles[0]:
         area = math.pi * radio**2
         if 70000 <= area < 95000:
@@ -111,13 +111,9 @@ def clasificar_dados(contours,img_cl):
         print(f"Dado {idx}: {numero} puntos detectados")
 
 
-
-
-def main(imagen_path):
+def main():
 
     imagen_path='monedas.jpg' # Path de la imagen a procesar
-    
-    monedas = {"1 peso": 0, "50 centavos": 0, "10 centavos": 0} # Diccionario de monedas
     
     img = cv2.imread(imagen_path) # Lectura de la imagen
     
