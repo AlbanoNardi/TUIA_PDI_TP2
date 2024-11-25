@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Defininimos función para mostrar imágenes
 def imshow(img, new_fig=True, title=None, color_img=False, blocking=False, colorbar=False, ticks=False):
     if new_fig:
         plt.figure()
@@ -18,148 +17,159 @@ def imshow(img, new_fig=True, title=None, color_img=False, blocking=False, color
     if new_fig:        
         plt.show(block=blocking)
 
-def patente_canny(imagen_path):
-        """
-        Detecta la patente utilizando Canny y criterios de contornos.
-        """
-        # Leer imagen y convertir a escala de grises
-        imagen = cv2.imread(imagen_path)
-        gray = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+def patente_umbral(imagen):
         
-        # Aplicar filtro Gaussiano y Canny
-        f_blur = cv2.GaussianBlur(gray, ksize=(3, 3), sigmaX=1.5)
-        edges = cv2.Canny(f_blur, threshold1=102, threshold2=190)
-        
-        # Encontrar contornos
-        contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-        for contorno in contours:
-            x, y, w, h = cv2.boundingRect(contorno)
-            aspect_ratio = w / h
-            area = cv2.contourArea(contorno)
-            rect_area = w * h
-            fill_ratio = area / rect_area
+    img_original = cv2.imread(imagen)
 
-            # Filtrar contornos que cumplan los criterios de patente
-            if 1.0 <= aspect_ratio <= 3.5 and 0.5 < fill_ratio < 0.9 and 2000 < rect_area < 3000:
-                # Recortar y mostrar la patente detectada
-                patente_recortada = imagen[y:y+h, x:x+w]
-                imshow(patente_recortada, title="Patente Detectada (Canny)")
-                return patente_recortada
-        return None
+    img_rgb = cv2.cvtColor(img_original, cv2.COLOR_BGR2RGB) 
 
-def reconocer_patente(imagen_path):
-        """
-        Detecta la patente utilizando umbral adaptativo y filtros de contorno.
-        """
-        # Leer imagen y convertir a escala de grises
-        imagen = cv2.imread(imagen_path)
-        gray = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
-        
-        # Filtro pasa-altos
-        kernel = -np.ones((5, 5)) / (5 * 5)
-        kernel[2, 2] = 24 / 25
-        img_filtered = cv2.filter2D(gray, -1, kernel)
-        
-        # Aplicar umbral adaptativo
-        thresh = cv2.adaptiveThreshold(img_filtered, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-        
-        # Encontrar contornos
-        contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)
-        
-        for contorno in contours:
-            x, y, w, h = cv2.boundingRect(contorno)
-            aspect_ratio = w / h
-            area = cv2.contourArea(contorno)
-            rect_area = w * h
-            fill_ratio = area / rect_area
+    img_gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY) 
 
-            # Filtrar contornos que cumplan los criterios de patente
-            if 1.0 <= aspect_ratio <= 3.5 and 0.5 < fill_ratio < 0.9 and 900 < rect_area < 3800:
-                patente_recortada = imagen[y:y+h, x:x+w]
-                imshow(patente_recortada, title="Patente Detectada (Método Alternativo)")
-                return patente_recortada
-        return None
+    w2 = -np.ones((5,5))/(5*5)  
 
-# 1. Detección de la patente
-def detectar_patente(imagen_path):
-    """
-    Detecta la patente en la imagen utilizando dos métodos complementarios: Canny y un método alternativo.
-    """
+    w2[2,2] = 24 / 25
 
-    # Intentar detección con ambos métodos
-    patente = patente_canny(imagen_path)
-    if patente is not None:
-        print("Patente detectada con Canny.")
-        return patente
+    img_filtrada = cv2.filter2D(img_gray,-1,w2) # Filtro pasa altos
+
+    img_thresh = cv2.adaptiveThreshold(img_filtrada, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY, 11, 2)
+
+    contours, _ = cv2.findContours(img_thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+  
+    contours_area = sorted(contours, key=cv2.contourArea, reverse=True)
+
+    for contorno in contours_area:
+
+        x, y, w, h = cv2.boundingRect(contorno) # Sacamos coordenadas de recuadro de patente
+
+        aspect_ratio = w / h  # Relación de aspecto
+
+        area = cv2.contourArea(contorno) # Cálculo del área de la patente
+
+        rect_area = w * h # Área del recuadro rectangular
+
+        fill_ratio = area / rect_area  # Proporción de área cubierta por el contorno
+               
+        if 1.78 <= aspect_ratio <= 3.1 and 0.9 > fill_ratio > 0.5 and 3800 > rect_area > 1400: # Filtrar por criterios típicos de patentes
+
+            cv2.drawContours(img_rgb, [contorno], -1, (0, 255, 0), 2)
+
+            #imshow(img_rgb)
+
+            patente_recortada = img_original[y:y+h, x:x+w]
+
+            #imshow(patente_recortada)
+
+            return patente_recortada
+        
+        elif 1.78 <= aspect_ratio <= 3.1 and 2000 > rect_area > 1800:
+
+            cv2.drawContours(img_rgb, [contorno], -1, (0, 255, 0), 2)
+
+            #imshow(img_rgb)
+
+            patente_recortada = img_original[y:y+h, x:x+w]
+
+            #imshow(patente_recortada)
+            
+            return patente_recortada
     
-    print("Intentando método alternativo...")
-    patente = reconocer_patente(imagen_path)
-    if patente is not None:
-        print("Patente detectada con método alternativo.")
-        return patente
+        elif 1.78 <= aspect_ratio <= 3.1 and 2200 > rect_area > 2100:
 
-    print("No se encontró una patente adecuada con ninguno de los métodos.")
+            cv2.drawContours(img_rgb, [contorno], -1, (0, 255, 0), 2)
+
+            #imshow(img_rgb)
+
+            patente_recortada = img_original[y:y+h+10, x:x+w]
+
+            #imshow(patente_recortada)
+            
+            return patente_recortada
+
+    print("No se encontró la patente")
+
     return None
 
-# 2. Segmentación de caracteres
-def segmentar_caracteres(patente):
-    """
-    Segmenta los caracteres de la patente detectada.
-    """
-    # Convertir a escala de grises y ecualizar
+def checkear_tolerancia_consecutiva(arr, tolerancia):
+    for i in range(1, len(arr)):
+        dif = abs(arr[i] - arr[i - 1])
+        max_dif_permitida = tolerancia * arr[i - 1] 
+        if dif > max_dif_permitida :
+            return False 
+    return False if arr[0] / arr[len(arr)-1] > 1.5 else True
+
+def segmentar_fuerza_bruta(patente):
+    
     gray = cv2.cvtColor(patente, cv2.COLOR_BGR2GRAY)
-    gray_eq = cv2.equalizeHist(gray)
-    
-    # Umbralización
-    _, thresh_img = cv2.threshold(gray_eq, thresh=118, maxval=255, type=cv2.THRESH_BINARY)
-    
-    # Encontrar contornos
-    contours, _ = cv2.findContours(thresh_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-    
-    caracteres = []
-    for contorno in contours:
-        x, y, w, h = cv2.boundingRect(contorno)
-        aspect_ratio = w / h
-        area = cv2.contourArea(contorno)
 
-        # Filtrar contornos que parezcan caracteres
-        if 30 < area < 90 and 0.3 < aspect_ratio < 0.7:
-            cv2.rectangle(patente, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            caracter_recortado = gray[y:y+h, x:x+w]
-            caracteres.append((x, caracter_recortado))
+    for t in range (50,200,10):
+
+        patente_copy2 = patente.copy()
+
+        patente_copy = cv2.cvtColor(patente_copy2, cv2.COLOR_BGR2RGB)
+
+        _, thresh_img = cv2.threshold(gray, thresh=t, maxval=255, type=cv2.THRESH_BINARY)
+
+        # Encontrar contornos
+        contours, _ = cv2.findContours(thresh_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+
+        areas_detectadas = []
+        caracteres = []
+        for contorno in contours:
+
+            x, y, w, h = cv2.boundingRect(contorno)
+            aspect_ratio = h / w
+            area_rect = w*h
+            # Filtrar contornos que parezcan caracteres
+
+            if 1.5 < aspect_ratio < 3.0:
+                areas_detectadas.append(area_rect)
+
+                caracter_recortado = gray[y:y+h, x:x+w]
+                caracteres.append(({"x":x,"y":y,"w":w,"h":h}, caracter_recortado,area_rect))
+
+        if len(caracteres) < 5:
+            continue
+        # Ordenar caracteres por su tamaño
+
+        caracteres = sorted(caracteres, key=lambda c: c[2],reverse=True)
+        
+        for i,caracter in enumerate(caracteres[:-5]):
+
+            arr = [x[2] for x in caracteres[i:i+6]]
+            resultado = np.apply_along_axis(checkear_tolerancia_consecutiva,arr=arr,axis=0,tolerancia=0.1)
+            
+            if resultado:
+                for d in [x[0] for x in caracteres[i:i+6]]:
+                    cv2.rectangle(patente_copy, (d["x"], d["y"]), (d["x"] + d["w"], d["y"] + d["h"]), (0, 255, 0), 1)
+                    
+                imshow(patente_copy)
+                return arr
+    print("No se encontraron 6 caracteres")
+    return None
+
+def main():
     
-    # Ordenar caracteres por su posición horizontal
-    caracteres = sorted(caracteres, key=lambda c: c[0])
+    for i in range(1, 13):
+        img_name = f"img{i:02d}.png"
 
-    # Mostrar la patente con caracteres resaltados
-    imshow(patente, title="Caracteres Segmentados")
-    return caracteres
+        print(f"Procesando {img_name}...")
 
-# 3. Flujo principal
-def main(imagen_path):
-    """
-    Flujo principal para detectar y segmentar caracteres de una patente.
-    """
-    patente = detectar_patente(imagen_path)
-    if patente is not None:
-        caracteres = segmentar_caracteres(patente)
-        print(f"Número de caracteres detectados: {len(caracteres)}")
-        return caracteres
-    else:
-        print("No se pudo procesar la imagen.")
-        return None
+        patente = patente_umbral(img_name)
+        
+        if patente is not None:
+            print(f"Patente detectada en {img_name}. Intentando segmentar caracteres...")
 
-# Ejecutar sobre una imagen
-caracteres_detectados = main('img01.png')
-caracteres_detectados = main('img02.png')
-caracteres_detectados = main('img03.png')
-caracteres_detectados = main('img04.png')
-caracteres_detectados = main('img05.png')
-caracteres_detectados = main('img06.png')
-caracteres_detectados = main('img07.png')
-caracteres_detectados = main('img08.png')
-caracteres_detectados = main('img09.png')
-caracteres_detectados = main('img10.png')
-caracteres_detectados = main('img11.png')
-caracteres_detectados = main('img12.png')
+            caracteres = segmentar_fuerza_bruta(patente)
+            
+            if caracteres is not None:
+                print(f"Segmentación exitosa en {img_name}. Áreas detectadas: {caracteres}")
+            else:
+                print(f"No se pudieron segmentar los caracteres en {img_name}.")
+        else:
+            print(f"No se detectó una patente en {img_name}.")
+    
+    print("Procesamiento completado.")
+
+if __name__ == "__main__":
+    main()
+
